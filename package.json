@@ -1,0 +1,28 @@
+{
+  "name": "simple-js-test-fixer",
+  "version": "1.0.0",
+  "description": "Simple Automated Test fixer working with CircleCI API to fetch failed pipeline logs and Github to fetch PR changes to understand and fix broken tests. Limited to JS projects. Built for Product Summit 2025 Buildathon.",
+  "main": "index.js",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm:dev:*\"",
+    "dev:client": "npm run dev --workspace=client",
+    "dev:web": "npm run dev --workspace=web",
+    "start:cli": "npm run start --workspace=cli",
+    "build": "npm run build --workspaces --if-present",
+    "test": "vitest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.38.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
