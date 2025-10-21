@@ -12,7 +12,13 @@
     "dev:web": "npm run dev --workspace=web",
     "start:cli": "npm run start --workspace=cli",
     "build": "npm run build --workspaces --if-present",
-    "test": "vitest"
+    "test": "npm run test --workspaces --if-present",
+    "test:core": "npm run test --workspace=core",
+    "test:web": "npm run test --workspace=web",
+    "test:cli": "npm run test --workspace=cli",
+    "test:client": "npm run test --workspace=client",
+    "ci:validate": "circleci config validate",
+    "ci:test-local": "circleci local execute --job test-core"
   },
   "keywords": [],
   "author": "",
