@@ -1,0 +1,242 @@
+version: 2.1
+
+# Orbs for additional functionality
+orbs:
+  node: circleci/node@5.2.0
+
+# Executors define the environment
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:20.18.2
+    working_directory: ~/repo
+
+# Reusable commands
+commands:
+  install-dependencies:
+    description: "Install dependencies with caching"
+    steps:
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "package-lock.json" }}
+            - v1-dependencies-
+      - run:
+          name: Install dependencies
+          command: npm ci
+      - save_cache:
+          paths:
+            - node_modules
+            - packages/*/node_modules
+          key: v1-dependencies-{{ checksum "package-lock.json" }}
+
+  detect-changes:
+    description: "Detect which packages have changed"
+    parameters:
+      package:
+        type: string
+    steps:
+      - run:
+          name: Check if << parameters.package >> changed
+          command: |
+            # Get changed files
+            if [ -z "$CIRCLE_COMPARE_URL" ]; then
+              # First commit or no previous commit - run all tests
+              echo "No previous commit to compare. Running tests."
+              echo "true" > /tmp/<< parameters.package >>_changed
+            else
+              # Extract commit range from compare URL
+              COMMIT_RANGE=$(echo $CIRCLE_COMPARE_URL | sed 's:^.*/compare/::g')
+
+              # Check if package files changed
+              if git diff --name-only $COMMIT_RANGE | grep -q "^packages/<< parameters.package >>/"; then
+                echo "<< parameters.package >> has changes. Running tests."
+                echo "true" > /tmp/<< parameters.package >>_changed
+              else
+                echo "<< parameters.package >> has no changes. Skipping."
+                echo "false" > /tmp/<< parameters.package >>_changed
+              fi
+            fi
+
+# Jobs
+jobs:
+  setup:
+    executor: node-executor
+    steps:
+      - checkout
+      - install-dependencies
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - .
+
+  test-core:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - detect-changes:
+          package: core
+      - run:
+          name: Run Core Tests
+          command: |
+            if [ "$(cat /tmp/core_changed)" = "true" ] || [ "$CIRCLE_BRANCH" = "main" ]; then
+              npm run test:core
+            else
+              echo "Skipping core tests - no changes detected"
+            fi
+      - store_test_results:
+          path: packages/core/coverage
+      - store_artifacts:
+          path: packages/core/coverage
+
+  test-web:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - detect-changes:
+          package: web
+      - run:
+          name: Run Web Tests
+          command: |
+            if [ "$(cat /tmp/web_changed)" = "true" ] || [ "$CIRCLE_BRANCH" = "main" ]; then
+              npm run test --workspace=web
+            else
+              echo "Skipping web tests - no changes detected"
+            fi
+
+  test-cli:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - detect-changes:
+          package: cli
+      - run:
+          name: Run CLI Tests
+          command: |
+            if [ "$(cat /tmp/cli_changed)" = "true" ] || [ "$CIRCLE_BRANCH" = "main" ]; then
+              npm run test --workspace=cli
+            else
+              echo "Skipping cli tests - no changes detected"
+            fi
+
+  test-client:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - detect-changes:
+          package: client
+      - run:
+          name: Run Client Tests
+          command: |
+            if [ "$(cat /tmp/client_changed)" = "true" ] || [ "$CIRCLE_BRANCH" = "main" ]; then
+              npm run test --workspace=client
+            else
+              echo "Skipping client tests - no changes detected"
+            fi
+
+  build-core:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - detect-changes:
+          package: core
+      - run:
+          name: Build Core
+          command: |
+            if [ "$(cat /tmp/core_changed)" = "true" ] || [ "$CIRCLE_BRANCH" = "main" ]; then
+              npm run build --workspace=core
+            else
+              echo "Skipping core build - no changes detected"
+            fi
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - packages/core/dist
+
+  build-web:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - detect-changes:
+          package: web
+      - run:
+          name: Build Web
+          command: |
+            if [ "$(cat /tmp/web_changed)" = "true" ] || [ "$CIRCLE_BRANCH" = "main" ]; then
+              npm run build --workspace=web
+            else
+              echo "Skipping web build - no changes detected"
+            fi
+
+  build-cli:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - detect-changes:
+          package: cli
+      - run:
+          name: Build CLI
+          command: |
+            if [ "$(cat /tmp/cli_changed)" = "true" ] || [ "$CIRCLE_BRANCH" = "main" ]; then
+              npm run build --workspace=cli
+            else
+              echo "Skipping cli build - no changes detected"
+            fi
+
+  build-client:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - detect-changes:
+          package: client
+      - run:
+          name: Build Client
+          command: |
+            if [ "$(cat /tmp/client_changed)" = "true" ] || [ "$CIRCLE_BRANCH" = "main" ]; then
+              npm run build --workspace=client
+            else
+              echo "Skipping client build - no changes detected"
+            fi
+
+# Workflows
+workflows:
+  version: 2
+  test-and-build:
+    jobs:
+      # Setup - runs for all commits
+      - setup
+
+      # Test jobs - run in parallel after setup
+      - test-core:
+          requires:
+            - setup
+      - test-web:
+          requires:
+            - setup
+      - test-cli:
+          requires:
+            - setup
+      - test-client:
+          requires:
+            - setup
+
+      # Build jobs - run after tests pass
+      - build-core:
+          requires:
+            - test-core
+      - build-web:
+          requires:
+            - test-web
+      - build-cli:
+          requires:
+            - test-cli
+      - build-client:
+          requires:
+            - test-client
