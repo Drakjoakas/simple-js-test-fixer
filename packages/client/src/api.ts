@@ -7,7 +7,7 @@ import type {
   FixResponse,
 } from './types';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = import.meta.env.VITE_API_URL + '/api' || '/api';
 
 async function fetchAPI<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
