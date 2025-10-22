@@ -136,6 +136,11 @@ describe('GitHubClient', () => {
           ok: true,
           json: async () => ({})
         } as Response)
+        // Get file info (for existing file)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ sha: 'file-sha', content: '' })
+        } as Response)
         // Create/update file
         .mockResolvedValueOnce({
           ok: true,
@@ -182,7 +187,9 @@ describe('GitHubClient', () => {
         .mockResolvedValueOnce({ ok: true, json: async () => ({ default_branch: 'main' }) } as Response)
         .mockResolvedValueOnce({ ok: true, json: async () => ({ sha: 'sha' }) } as Response)
         .mockResolvedValueOnce({ ok: true, json: async () => ({}) } as Response)
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ sha: 'file1-sha', content: '' }) } as Response)
         .mockResolvedValueOnce({ ok: true, json: async () => ({}) } as Response)
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ sha: 'file2-sha', content: '' }) } as Response)
         .mockResolvedValueOnce({ ok: true, json: async () => ({}) } as Response)
         .mockResolvedValueOnce({
           ok: true,

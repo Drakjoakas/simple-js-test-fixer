@@ -40,7 +40,18 @@ export class TestAnalyzer {
       return FailureType.SNAPSHOT;
     }
 
-    // Assertion failures (check early for specificity)
+    // Property/field name changes - check for "is not a function" pattern first
+    // This indicates a method was removed/renamed, which is a property change
+    if (combined.includes('is not a function')) {
+      return FailureType.PROPERTY_CHANGE;
+    }
+
+    // Type errors - check before assertions since they can contain similar keywords
+    if (combined.includes('type error:') || combined.includes('typeerror:')) {
+      return FailureType.TYPE_ERROR;
+    }
+
+    // Assertion failures (check after type errors to avoid false positives)
     if ((combined.includes('expected') && combined.includes('received')) ||
         (combined.includes('expected') && combined.includes('but got'))) {
       return FailureType.ASSERTION;
@@ -51,7 +62,6 @@ export class TestAnalyzer {
         combined.includes('cannot read propert') || // matches "property" or "properties"
         combined.includes('undefined is not') ||
         combined.includes('null is not') ||
-        combined.includes('is not a function') ||
         combined.includes('is not defined')) {
       return FailureType.TYPE_ERROR;
     }
