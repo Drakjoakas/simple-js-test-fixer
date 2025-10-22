@@ -280,6 +280,12 @@ jobs:
             # Replace placeholder with actual project ID
             sed -i "s/YOUR_GCP_PROJECT_ID/${GCP_PROJECT_ID}/g" .firebaserc
       - run:
+          name: Initialize Firebase Hosting Site
+          command: |
+            # Create the hosting site if it doesn't exist
+            # This will fail silently if the site already exists
+            npx -y firebase-tools hosting:sites:create ${GCP_PROJECT_ID} --project ${GCP_PROJECT_ID} --token ${FIREBASE_TOKEN} --non-interactive || true
+      - run:
           name: Deploy to Firebase Hosting
           command: |
             npx -y firebase-tools deploy --only hosting --token ${FIREBASE_TOKEN} --non-interactive
