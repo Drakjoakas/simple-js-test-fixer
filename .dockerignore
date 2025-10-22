@@ -1,0 +1,49 @@
+# Node modules
+**/node_modules
+**/npm-debug.log
+
+# Build outputs
+**/dist
+**/*.tsbuildinfo
+
+# Tests
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+**/__tests__
+**/__mocks__
+**/coverage
+**/.nyc_output
+
+# Development files
+**/.env
+**/.env.local
+**/.env.*.local
+
+# IDE
+**/.vscode
+**/.idea
+**/*.swp
+**/*.swo
+**/*~
+
+# Git
+.git
+.gitignore
+**/.gitignore
+
+# CI/CD
+.circleci
+.github
+
+# Documentation
+*.md
+!README.md
+
+# Misc
+**/.DS_Store
+
+# Package-specific excludes
+packages/cli
+packages/client

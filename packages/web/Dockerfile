@@ -7,23 +7,11 @@ WORKDIR /app
 # Copy root package files
 COPY package*.json ./
 
-# Copy core package
-COPY packages/core/package.json ./packages/core/
-COPY packages/core/tsconfig.json ./packages/core/
-COPY packages/core/*.ts ./packages/core/
-COPY packages/core/models ./packages/core/models
-COPY packages/core/services ./packages/core/services
-COPY packages/core/strategies ./packages/core/strategies
-COPY packages/core/integrations ./packages/core/integrations
-COPY packages/core/utils ./packages/core/utils
+# Copy core package (exclude node_modules, dist, tests)
+COPY packages/core ./packages/core
 
-# Copy web package
-COPY packages/web/package.json ./packages/web/
-COPY packages/web/tsconfig.json ./packages/web/
-COPY packages/web/*.ts ./packages/web/
-COPY packages/web/controllers ./packages/web/controllers
-COPY packages/web/routes ./packages/web/routes
-COPY packages/web/services ./packages/web/services
+# Copy web package (exclude node_modules, dist)
+COPY packages/web ./packages/web
 
 # Install dependencies for both packages
 RUN npm ci
