@@ -221,13 +221,9 @@ jobs:
           docker_layer_caching: true
       - gcp-cli/setup:
           components: "gcloud"
-      - run:
-          name: Authenticate with GCP
-          command: |
-            # Decode the base64-encoded service account key (handles line breaks)
-            echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > ${HOME}/gcp-key.json
-            gcloud auth activate-service-account --key-file ${HOME}/gcp-key.json
-            gcloud config set project $GCP_PROJECT_ID
+      - gcp-cli/initialize:
+          gcloud-service-key: GCP_SERVICE_ACCOUNT_KEY
+          google-project-id: GCP_PROJECT_ID
       - run:
           name: Configure Docker for GCP
           command: |
@@ -276,10 +272,6 @@ jobs:
       - attach_workspace:
           at: ~/repo
       - run:
-          name: Install Firebase Tools
-          command: |
-            npm install firebase-tools
-      - run:
           name: Update Firebase Project Config
           command: |
             # Replace placeholder with actual project ID
@@ -287,7 +279,7 @@ jobs:
       - run:
           name: Deploy to Firebase Hosting
           command: |
-            npx firebase deploy --only hosting --token ${FIREBASE_TOKEN} --non-interactive
+            npx -y firebase-tools deploy --only hosting --token ${FIREBASE_TOKEN} --non-interactive
       - run:
           name: Get Hosting URL
           command: |
