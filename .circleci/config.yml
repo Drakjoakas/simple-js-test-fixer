@@ -274,6 +274,29 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/repo
+      - gcp-cli/install
+      - run:
+          name: Get Backend API URL
+          command: |
+            # Authenticate to get the backend URL
+            echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > ${HOME}/gcp-key.json
+            gcloud auth activate-service-account --key-file ${HOME}/gcp-key.json
+            gcloud config set project $GCP_PROJECT_ID
+
+            # Get the deployed backend URL
+            BACKEND_URL=$(gcloud run services describe ${CLOUD_RUN_SERVICE_NAME_WEB} \
+              --region ${CLOUD_RUN_REGION} \
+              --format 'value(status.url)')
+
+            echo "Backend URL: $BACKEND_URL"
+            echo "export VITE_API_URL=$BACKEND_URL" >> $BASH_ENV
+      - run:
+          name: Build Client with Backend URL
+          command: |
+            # Build the client with the correct backend URL
+            cd packages/client
+            echo "VITE_API_URL=${VITE_API_URL}" > .env.production
+            npm run build
       - run:
           name: Update Firebase Project Config
           command: |
@@ -293,6 +316,7 @@ jobs:
           name: Get Hosting URL
           command: |
             echo "Frontend deployed to: https://${GCP_PROJECT_ID}.web.app"
+            echo "Backend API URL: ${VITE_API_URL}"
             echo "https://${GCP_PROJECT_ID}.web.app" > /tmp/frontend-url.txt
       - store_artifacts:
           path: /tmp/frontend-url.txt
@@ -344,6 +368,7 @@ workflows:
       - deploy-client:
           requires:
             - build-client
+            - deploy-web-api  # Wait for backend to be deployed first
           filters:
             branches:
               only: main
