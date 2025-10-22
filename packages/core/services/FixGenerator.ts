@@ -95,6 +95,7 @@ export class FixGenerator {
     return {
       buildNumber: failures[0]?.buildNumber || 0,
       commitSha: failures[0]?.commitSha || '',
+      branch: failures[0]?.branch,
       fixes,
       totalConfidence,
       estimatedTimesSaved: successfulFixes.length * 15 // Assume 15 min per fix

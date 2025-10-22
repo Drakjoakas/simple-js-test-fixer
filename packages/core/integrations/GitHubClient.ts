@@ -61,6 +61,26 @@ export class GitHubClient {
   }
 
   /**
+   * Gets file metadata (including SHA) from a repository
+   */
+  async getFileInfo(
+    owner: string,
+    repo: string,
+    path: string,
+    ref?: string
+  ): Promise<{ sha: string; content: string }> {
+    const url = `${this.baseUrl}/repos/${owner}/${repo}/contents/${path}`;
+    const params = ref ? `?ref=${ref}` : '';
+
+    const response = await this.fetch(`${url}${params}`);
+
+    return {
+      sha: response.sha,
+      content: response.content ? Buffer.from(response.content, 'base64').toString('utf-8') : ''
+    };
+  }
+
+  /**
    * Gets the diff for a specific commit
    */
   async getCommitDiff(
@@ -139,13 +159,29 @@ export class GitHubClient {
 
     // Commit changes to the new branch
     for (const change of prData.changes) {
+      // Get current file SHA if the file exists (required for updates)
+      let fileSha: string | undefined;
+      try {
+        const fileInfo = await this.getFileInfo(
+          prData.owner,
+          prData.repo,
+          change.path,
+          prData.baseBranch
+        );
+        fileSha = fileInfo.sha;
+      } catch (error) {
+        // File doesn't exist, this is a new file (no SHA needed)
+        fileSha = undefined;
+      }
+
       await this.createOrUpdateFile(
         prData.owner,
         prData.repo,
         change.path,
         change.content,
         prData.commitMessage,
-        prData.branchName
+        prData.branchName,
+        fileSha
       );
     }
 

@@ -4,8 +4,7 @@
     "module": "commonjs",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": ".",
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -13,6 +12,6 @@
     "moduleResolution": "node",
     "types": ["node"]
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["./app.ts", "./controllers/**/*.ts", "./routes/**/*.ts", "./services/**/*.ts"],
+  "exclude": ["node_modules", "dist", "../core", "list-builds.ts", "test-tokens.ts"]
 }

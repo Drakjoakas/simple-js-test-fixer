@@ -74,11 +74,10 @@ export class TestFixerOrchestrator {
    * Main workflow: Fetch failures, analyze, fix, and create PR
    */
   async fixFailuresAndCreatePR(
-    projectSlug: string,
-    buildNumber: number
+    pipelineId: string
   ): Promise<CreatedPR> {
     // Step 1: Fetch test failures from CircleCI
-    const failures = await this.fetchTestFailures(projectSlug, buildNumber);
+    const failures = await this.fetchTestFailures(pipelineId);
 
     if (failures.length === 0) {
       throw new Error('No test failures found for this build');
@@ -101,7 +100,8 @@ export class TestFixerOrchestrator {
     const prData = this.prCreator.preparePRData(
       proposal,
       this.config.github.owner,
-      this.config.github.repo
+      this.config.github.repo,
+      proposal.branch || 'main' // Target the branch that caused the failure, fallback to main
     );
 
     const pr = await this.github.createPullRequest(prData);
@@ -113,10 +113,9 @@ export class TestFixerOrchestrator {
    * Fetch test failures from CircleCI for a specific build
    */
   async fetchTestFailures(
-    projectSlug: string,
-    buildNumber: number
+    pipelineId: string
   ): Promise<TestFailure[]> {
-    return this.circleci.getTestResults(buildNumber, projectSlug);
+    return this.circleci.getFailedTestOutput(pipelineId);
   }
 
   /**
@@ -148,7 +147,8 @@ export class TestFixerOrchestrator {
     const prData = this.prCreator.preparePRData(
       proposal,
       this.config.github.owner,
-      this.config.github.repo
+      this.config.github.repo,
+      proposal.branch || 'main' // Target the branch that caused the failure, fallback to main
     );
 
     return this.github.createPullRequest(prData);
@@ -165,19 +165,29 @@ export class TestFixerOrchestrator {
     const commitSha = failures[0]?.commitSha;
 
     // Fetch all test files
-    const uniqueFiles = [...new Set(failures.map(f => f.testFile))];
+    const uniqueFiles = [...new Set(failures.map(f => f.testFile).filter(f => f && f !== 'Unknown'))];
+
+    if (uniqueFiles.length === 0) {
+      console.warn('No valid test files found in failures. Cannot fetch file contents.');
+      // Return empty map - strategies will need to work with error messages only
+      return { testFiles, codeDiff: undefined };
+    }
 
     for (const file of uniqueFiles) {
       try {
+        // If commitSha is available, fetch from that commit
+        // Otherwise, fetch from default branch
         const content = await this.github.getFileContent(
           this.config.github.owner,
           this.config.github.repo,
           file,
-          commitSha
+          commitSha || undefined
         );
         testFiles.set(file, content);
-      } catch (error) {
-        console.error(`Failed to fetch ${file}:`, error);
+      } catch (error: any) {
+        console.error(`Failed to fetch ${file}:`, error.message);
+        // Add a placeholder so we know this file was attempted
+        testFiles.set(file, `// Unable to fetch file content: ${error.message}`);
       }
     }
 
@@ -190,9 +200,11 @@ export class TestFixerOrchestrator {
           this.config.github.repo,
           commitSha
         );
-      } catch (error) {
-        console.error('Failed to fetch commit diff:', error);
+      } catch (error: any) {
+        console.error('Failed to fetch commit diff:', error.message);
       }
+    } else {
+      console.warn('No commit SHA available - skipping diff fetch');
     }
 
     return { testFiles, codeDiff };

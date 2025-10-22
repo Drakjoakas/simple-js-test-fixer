@@ -14,6 +14,7 @@ export interface TestFailure {
   jobId: string;
   buildNumber: number;
   commitSha: string;
+  branch?: string; // The branch that triggered the build
 
   // Metadata
   timestamp: Date;

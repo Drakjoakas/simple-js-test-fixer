@@ -40,26 +40,43 @@ export class TestAnalyzer {
       return FailureType.SNAPSHOT;
     }
 
-    // Assertion failures
-    if (combined.includes('expected') && combined.includes('received')) {
+    // Property/field name changes - check for "is not a function" pattern first
+    // This indicates a method was removed/renamed, which is a property change
+    if (combined.includes('is not a function')) {
+      return FailureType.PROPERTY_CHANGE;
+    }
+
+    // Type errors - check before assertions since they can contain similar keywords
+    if (combined.includes('type error:') || combined.includes('typeerror:')) {
+      return FailureType.TYPE_ERROR;
+    }
+
+    // Assertion failures (check after type errors to avoid false positives)
+    if ((combined.includes('expected') && combined.includes('received')) ||
+        (combined.includes('expected') && combined.includes('but got'))) {
       return FailureType.ASSERTION;
     }
 
-    // Property/field name changes (check before type error for specificity)
-    if (combined.includes('is not a function') ||
-        (combined.includes('undefined') && combined.includes('property'))) {
+    // TypeErrors - undefined/null access (very common pattern)
+    if (combined.includes('typeerror') ||
+        combined.includes('cannot read propert') || // matches "property" or "properties"
+        combined.includes('undefined is not') ||
+        combined.includes('null is not') ||
+        combined.includes('is not defined')) {
+      return FailureType.TYPE_ERROR;
+    }
+
+    // Property/field name changes (more specific patterns)
+    if ((combined.includes('undefined') || combined.includes('null')) &&
+        (combined.includes('property') || combined.includes('properties') ||
+         combined.includes('field') || combined.includes('attribute'))) {
       return FailureType.PROPERTY_CHANGE;
     }
 
     // Mock issues
-    if (combined.includes('mock') || combined.includes('spy')) {
+    if (combined.includes('mock') || combined.includes('spy') ||
+        combined.includes('jest.fn') || combined.includes('stub')) {
       return FailureType.MOCK;
-    }
-
-    // TypeScript type errors
-    if (combined.includes('type') &&
-        (combined.includes('error') || combined.includes('mismatch'))) {
-      return FailureType.TYPE_ERROR;
     }
 
     return FailureType.UNKNOWN;

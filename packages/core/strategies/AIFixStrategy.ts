@@ -1,5 +1,6 @@
 import { AnalyzedFailure, FixResult, FailureType } from '../models';
 import { IFixStrategy } from './IFixStrategy';
+import { OpenAIClient } from '../integrations/OpenAIClient';
 
 /**
  * Fallback strategy that uses AI for complex fixes
@@ -7,9 +8,9 @@ import { IFixStrategy } from './IFixStrategy';
  */
 export class AIFixStrategy implements IFixStrategy {
   readonly name = 'ai-powered';
-  private aiClient: any; // OpenAI client will be injected
+  private aiClient: OpenAIClient;
 
-  constructor(aiClient?: any) {
+  constructor(aiClient: OpenAIClient) {
     this.aiClient = aiClient;
   }
 
@@ -23,23 +24,24 @@ export class AIFixStrategy implements IFixStrategy {
     testFileContent: string,
     codeDiff?: string
   ): Promise<FixResult> {
-    if (!this.aiClient) {
-      return this.createFailureResult(failure, 'AI client not configured');
-    }
-
     try {
-      const prompt = this.buildPrompt(failure, testFileContent, codeDiff);
-      const fixedCode = await this.callAI(prompt);
+      const result = await this.aiClient.generateTestFix(
+        testFileContent,
+        failure.errorMessage,
+        failure.stackTrace || '',
+        codeDiff
+      );
 
       return {
         originalCode: testFileContent,
-        fixedCode,
+        fixedCode: result.fixedCode,
         filePath: failure.testFile,
         strategy: this.name,
-        explanation: this.generateExplanation(failure),
+        explanation: result.explanation || this.generateExplanation(failure),
         confidence: this.calculateConfidence(failure),
         success: true,
-        aiModel: 'gpt-4'
+        aiModel: 'gpt-4',
+        tokensUsed: result.tokensUsed
       };
     } catch (error) {
       return this.createFailureResult(
@@ -49,32 +51,6 @@ export class AIFixStrategy implements IFixStrategy {
     }
   }
 
-  private buildPrompt(
-    failure: AnalyzedFailure,
-    testFileContent: string,
-    codeDiff?: string
-  ): string {
-    let prompt = `You are a test fixing assistant. Fix the following test failure:\n\n`;
-
-    prompt += `## Test File: ${failure.testFile}\n`;
-    prompt += `## Error: ${failure.errorMessage}\n\n`;
-    prompt += `## Stack Trace:\n${failure.stackTrace}\n\n`;
-
-    if (codeDiff) {
-      prompt += `## Recent Code Changes:\n${codeDiff}\n\n`;
-    }
-
-    prompt += `## Current Test File:\n\`\`\`typescript\n${testFileContent}\n\`\`\`\n\n`;
-    prompt += `Please provide the corrected test file. Only return the fixed code, no explanations.`;
-
-    return prompt;
-  }
-
-  private async callAI(prompt: string): Promise<string> {
-    // Placeholder - actual implementation will use OpenAI client
-    // For now, return original (no-op)
-    throw new Error('AI client not implemented yet - wire up OpenAI in integration layer');
-  }
 
   private generateExplanation(failure: AnalyzedFailure): string {
     const typeMap: Record<string, string> = {
