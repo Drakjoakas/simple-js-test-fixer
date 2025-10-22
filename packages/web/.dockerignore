@@ -1,0 +1,45 @@
+# Node modules
+node_modules
+npm-debug.log
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Tests
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+**/__tests__
+**/__mocks__
+
+# Coverage
+coverage
+.nyc_output
+
+# Development files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Git
+.git
+.gitignore
+
+# CI/CD
+.circleci
+.github
+
+# Docs
+*.md
+!README.md
+
+# Misc
+.DS_Store

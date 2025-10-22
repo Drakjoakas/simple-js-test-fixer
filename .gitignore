@@ -44,3 +44,11 @@ next-env.d.ts
 **/.nyc_output
 
 **/dist
+
+# GCP / Firebase
+gcp-key.json
+*-key.json
+service-account*.json
+.firebase/
+firebase-debug.log
+.firebaserc.local

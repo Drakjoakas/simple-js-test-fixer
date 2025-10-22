@@ -3,6 +3,7 @@ version: 2.1
 # Orbs for additional functionality
 orbs:
   node: circleci/node@5.2.0
+  gcp-cli: circleci/gcp-cli@3.1.0
 
 # Executors define the environment
 executors:
@@ -204,11 +205,100 @@ jobs:
             else
               echo "Skipping client build - no changes detected"
             fi
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - packages/client/dist
+
+  deploy-web-api:
+    docker:
+      - image: cimg/base:stable
+    working_directory: ~/repo
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - gcp-cli/setup:
+          components: "gcloud"
+      - run:
+          name: Authenticate with GCP
+          command: |
+            echo $GCP_SERVICE_ACCOUNT_KEY | base64 -d > ${HOME}/gcp-key.json
+            gcloud auth activate-service-account --key-file ${HOME}/gcp-key.json
+            gcloud config set project $GCP_PROJECT_ID
+      - run:
+          name: Configure Docker for GCP
+          command: |
+            gcloud auth configure-docker
+      - run:
+          name: Build and Push Docker Image
+          command: |
+            # Build from root to include both core and web packages
+            cd ~/repo
+            IMAGE_NAME="gcr.io/${GCP_PROJECT_ID}/${CLOUD_RUN_SERVICE_NAME_WEB}:${CIRCLE_SHA1}"
+            docker build -f packages/web/Dockerfile -t $IMAGE_NAME .
+            docker push $IMAGE_NAME
+
+            # Also tag as latest
+            docker tag $IMAGE_NAME "gcr.io/${GCP_PROJECT_ID}/${CLOUD_RUN_SERVICE_NAME_WEB}:latest"
+            docker push "gcr.io/${GCP_PROJECT_ID}/${CLOUD_RUN_SERVICE_NAME_WEB}:latest"
+      - run:
+          name: Deploy to Cloud Run
+          command: |
+            gcloud run deploy ${CLOUD_RUN_SERVICE_NAME_WEB} \
+              --image gcr.io/${GCP_PROJECT_ID}/${CLOUD_RUN_SERVICE_NAME_WEB}:${CIRCLE_SHA1} \
+              --region ${CLOUD_RUN_REGION} \
+              --platform managed \
+              --allow-unauthenticated \
+              --set-env-vars "NODE_ENV=production,OPENAI_API_KEY=${OPENAI_API_KEY},GITHUB_TOKEN=${GITHUB_TOKEN},CIRCLECI_TOKEN=${CIRCLECI_TOKEN}" \
+              --memory 512Mi \
+              --cpu 1 \
+              --max-instances 10 \
+              --timeout 60
+      - run:
+          name: Get Service URL
+          command: |
+            SERVICE_URL=$(gcloud run services describe ${CLOUD_RUN_SERVICE_NAME_WEB} \
+              --region ${CLOUD_RUN_REGION} \
+              --format 'value(status.url)')
+            echo "Backend API deployed to: $SERVICE_URL"
+            echo $SERVICE_URL > /tmp/backend-url.txt
+      - store_artifacts:
+          path: /tmp/backend-url.txt
+
+  deploy-client:
+    docker:
+      - image: cimg/node:20.18.2
+    working_directory: ~/repo
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - run:
+          name: Install Firebase Tools
+          command: |
+            npm install -g firebase-tools
+      - run:
+          name: Update Firebase Project Config
+          command: |
+            # Replace placeholder with actual project ID
+            sed -i "s/YOUR_GCP_PROJECT_ID/${GCP_PROJECT_ID}/g" .firebaserc
+      - run:
+          name: Deploy to Firebase Hosting
+          command: |
+            firebase deploy --only hosting --token ${FIREBASE_TOKEN} --non-interactive
+      - run:
+          name: Get Hosting URL
+          command: |
+            echo "Frontend deployed to: https://${GCP_PROJECT_ID}.web.app"
+            echo "https://${GCP_PROJECT_ID}.web.app" > /tmp/frontend-url.txt
+      - store_artifacts:
+          path: /tmp/frontend-url.txt
 
 # Workflows
 workflows:
   version: 2
-  test-and-build:
+  test-build-and-deploy:
     jobs:
       # Setup - runs for all commits
       - setup
@@ -240,3 +330,18 @@ workflows:
       - build-client:
           requires:
             - test-client
+
+      # Deployment jobs - only on main branch after successful builds
+      - deploy-web-api:
+          requires:
+            - build-core
+            - build-web
+          filters:
+            branches:
+              only: main
+      - deploy-client:
+          requires:
+            - build-client
+          filters:
+            branches:
+              only: main
