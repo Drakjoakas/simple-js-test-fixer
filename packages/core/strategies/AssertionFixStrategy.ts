@@ -1,15 +1,17 @@
 import { AnalyzedFailure, FixResult, FailureType } from '../models';
 import { IFixStrategy } from './IFixStrategy';
+import { OpenAIClient } from '../integrations/OpenAIClient';
 
 /**
  * Strategy for fixing assertion failures
  * Uses AI to understand what changed and update expectations
+ * Falls back to simple string replacement for basic cases
  */
 export class AssertionFixStrategy implements IFixStrategy {
   readonly name = 'assertion';
-  private aiClient: any; // Will be injected - OpenAI client
+  private aiClient: OpenAIClient;
 
-  constructor(aiClient?: any) {
+  constructor(aiClient: OpenAIClient) {
     this.aiClient = aiClient;
   }
 
@@ -26,37 +28,72 @@ export class AssertionFixStrategy implements IFixStrategy {
     const assertionInfo = this.parseAssertionError(failure.errorMessage);
 
     if (!assertionInfo) {
-      return {
-        originalCode: testFileContent,
-        fixedCode: testFileContent,
-        filePath: failure.testFile,
-        strategy: this.name,
-        explanation: 'Could not parse assertion error',
-        confidence: 0,
-        success: false,
-        validationErrors: ['Unable to parse assertion']
-      };
+      // If we can't parse the assertion, try using AI
+      return this.useAIFix(failure, testFileContent, codeDiff);
     }
 
-    // For now, simple string replacement
-    // In production, would use AI to understand context
-    const fixedCode = this.applySimpleFix(
+    // Try simple string replacement for straightforward cases
+    const simpleFix = this.applySimpleFix(
       testFileContent,
       assertionInfo.expected,
       assertionInfo.received
     );
 
-    const explanation = `Updated assertion: expected "${assertionInfo.received}" instead of "${assertionInfo.expected}"`;
+    // If simple fix worked, use it with high confidence
+    if (simpleFix !== testFileContent) {
+      const explanation = `Updated assertion: expected "${assertionInfo.received}" instead of "${assertionInfo.expected}"`;
 
-    return {
-      originalCode: testFileContent,
-      fixedCode,
-      filePath: failure.testFile,
-      strategy: this.name,
-      explanation,
-      confidence: 0.7,
-      success: fixedCode !== testFileContent
-    };
+      return {
+        originalCode: testFileContent,
+        fixedCode: simpleFix,
+        filePath: failure.testFile,
+        strategy: this.name,
+        explanation,
+        confidence: 0.85,
+        success: true
+      };
+    }
+
+    // If simple fix didn't work, use AI for more complex cases
+    return this.useAIFix(failure, testFileContent, codeDiff);
+  }
+
+  private async useAIFix(
+    failure: AnalyzedFailure,
+    testFileContent: string,
+    codeDiff?: string
+  ): Promise<FixResult> {
+    try {
+      const result = await this.aiClient.generateTestFix(
+        testFileContent,
+        failure.errorMessage,
+        failure.stackTrace || '',
+        codeDiff
+      );
+
+      return {
+        originalCode: testFileContent,
+        fixedCode: result.fixedCode,
+        filePath: failure.testFile,
+        strategy: `${this.name}-ai`,
+        explanation: result.explanation || 'AI-generated assertion fix',
+        confidence: 0.7,
+        success: true,
+        aiModel: 'gpt-4',
+        tokensUsed: result.tokensUsed
+      };
+    } catch (error) {
+      return {
+        originalCode: testFileContent,
+        fixedCode: testFileContent,
+        filePath: failure.testFile,
+        strategy: this.name,
+        explanation: `Failed to generate fix: ${(error as Error).message}`,
+        confidence: 0,
+        success: false,
+        validationErrors: [`AI fix failed: ${(error as Error).message}`]
+      };
+    }
   }
 
   private parseAssertionError(errorMessage: string): { expected: string; received: string } | null {

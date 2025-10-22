@@ -1,12 +1,23 @@
 import { AssertionFixStrategy } from '../../strategies/AssertionFixStrategy';
 import { FailureType } from '../../models/TestFailure';
 import type { AnalyzedFailure } from '../../models/TestFailure';
+import { OpenAIClient } from '../../integrations/OpenAIClient';
 
 describe('AssertionFixStrategy', () => {
   let strategy: AssertionFixStrategy;
+  let mockOpenAIClient: OpenAIClient;
 
   beforeEach(() => {
-    strategy = new AssertionFixStrategy();
+    // Create a mock OpenAI client
+    mockOpenAIClient = {
+      generateTestFix: jest.fn().mockResolvedValue({
+        fixedCode: '// AI generated fix',
+        explanation: 'AI-generated fix explanation',
+        tokensUsed: 100
+      })
+    } as any;
+
+    strategy = new AssertionFixStrategy(mockOpenAIClient);
   });
 
   describe('canHandle', () => {
@@ -97,7 +108,7 @@ describe('AssertionFixStrategy', () => {
       expect(result.fixedCode).toContain('new');
     });
 
-    it('should handle unparseable assertion errors', async () => {
+    it('should use AI for unparseable assertion errors', async () => {
       const failure: AnalyzedFailure = {
         testName: 'test',
         testFile: 'test.ts',
@@ -116,8 +127,10 @@ describe('AssertionFixStrategy', () => {
       const testContent = 'test content';
       const result = await strategy.generateFix(failure, testContent);
 
-      expect(result.success).toBe(false);
-      expect(result.validationErrors).toContain('Unable to parse assertion');
+      // Should use AI when simple parsing fails
+      expect(result.success).toBe(true);
+      expect(result.strategy).toBe('assertion-ai');
+      expect(mockOpenAIClient.generateTestFix).toHaveBeenCalled();
     });
 
     it('should provide explanation of the fix', async () => {
@@ -143,7 +156,7 @@ describe('AssertionFixStrategy', () => {
       expect(result.explanation).toContain('userId');
     });
 
-    it('should have moderate confidence', async () => {
+    it('should have high confidence for simple fixes', async () => {
       const failure: AnalyzedFailure = {
         testName: 'test',
         testFile: 'test.ts',
@@ -162,7 +175,7 @@ describe('AssertionFixStrategy', () => {
       const testContent = 'expect(x).toBe("foo")';
       const result = await strategy.generateFix(failure, testContent);
 
-      expect(result.confidence).toBe(0.7);
+      expect(result.confidence).toBe(0.85);
     });
   });
 

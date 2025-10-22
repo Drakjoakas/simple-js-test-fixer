@@ -27,6 +27,7 @@ export interface FixResult {
 export interface FixProposal {
   buildNumber: number;
   commitSha: string;
+  branch?: string; // The branch that triggered the failure
   fixes: FixResult[];
   totalConfidence: number; // Average confidence across all fixes
   estimatedTimesSaved: number; // In minutes
