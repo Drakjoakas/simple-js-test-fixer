@@ -219,8 +219,7 @@ jobs:
           at: ~/repo
       - setup_remote_docker:
           docker_layer_caching: true
-      - gcp-cli/setup:
-          components: "gcloud"
+      - gcp-cli/install
       - gcp-cli/initialize:
           gcloud-service-key: GCP_SERVICE_ACCOUNT_KEY
           google-project-id: GCP_PROJECT_ID
