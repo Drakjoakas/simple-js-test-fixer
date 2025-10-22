@@ -220,9 +220,13 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - gcp-cli/install
-      - gcp-cli/initialize:
-          gcloud-service-key: GCP_SERVICE_ACCOUNT_KEY
-          google-project-id: GCP_PROJECT_ID
+      - run:
+          name: Authenticate with GCP
+          command: |
+            # Decode the base64-encoded service account key
+            echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > ${HOME}/gcp-key.json
+            gcloud auth activate-service-account --key-file ${HOME}/gcp-key.json
+            gcloud config set project $GCP_PROJECT_ID
       - run:
           name: Configure Docker for GCP
           command: |
