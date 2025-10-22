@@ -1,3 +1,5 @@
+[![CircleCI](https://dl.circleci.com/status-badge/img/circleci/SD8BKAP3EYCnJVovd8GWn/YHX2QtjrpyKThv3VeEgTZv/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/circleci/SD8BKAP3EYCnJVovd8GWn/YHX2QtjrpyKThv3VeEgTZv/tree/main)
+
 # simple-js-test-fixer
 
 Simple Automated Test fixer working with CircleCI API to fetch failed pipeline logs and Github to fetch PR changes to understand and fix broken tests. Limited to JS projects. Built for Product Summit 2025 Buildathon.
