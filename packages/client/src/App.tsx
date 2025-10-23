@@ -35,18 +35,14 @@ function App() {
   const [pipelineStates, setPipelineStates] = useState<Record<string, PipelineState>>({});
 
   const loadPipelines = async () => {
-    if (!slug) {
-      setError('Please enter a project slug');
-      return;
-    }
-
     setLoading(true);
     setError(null);
     try {
-      const response = await api.getPipelines(slug, 20);
+      // Slug is now optional - backend will use CIRCLECI_ORG_SLUG if not provided
+      const response = await api.getPipelines(slug || undefined, 20);
       setPipelines(response.pipelines);
 
-      // Extract slug from first pipeline if available
+      // Extract slug from first pipeline if available and update the input
       if (response.pipelines.length > 0 && !slug) {
         setSlug(response.pipelines[0].project_slug);
       }
@@ -203,13 +199,13 @@ function App() {
               type="text"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="Enter project slug (e.g., gh/owner/repo)"
+              placeholder="Project slug (optional, e.g., gh/owner/repo)"
               className="flex-1 px-4 py-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               onKeyDown={(e) => e.key === 'Enter' && loadPipelines()}
             />
             <button
               onClick={loadPipelines}
-              disabled={loading || !slug}
+              disabled={loading}
               className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 transition font-medium"
             >
               {loading ? 'Loading...' : 'Load Pipelines'}
@@ -253,7 +249,7 @@ function App() {
         {/* Pipeline List */}
         {pipelines.length === 0 && !loading && (
           <div className="bg-white rounded-lg shadow-sm border p-8 text-center text-gray-600">
-            Enter a project slug above to load pipelines
+            Click "Load Pipelines" to view recent CircleCI pipelines
           </div>
         )}
 

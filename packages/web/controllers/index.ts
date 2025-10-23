@@ -86,13 +86,13 @@ export class MainController {
   /**
    * Generate fixes for test failures
    * POST /api/generate-fixes
-   * Body: { pipelineId: string, slug: string }
+   * Body: { pipelineId: string, slug?: string }
    */
   async generateFixes(req: Request, res: Response) {
     try {
       const {pipelineId, slug} = req.body;
-      if (!pipelineId || !slug) {
-        res.status(400).json({message: "Bad Request: Missing pipelineId or slug from body"});
+      if (!pipelineId) {
+        res.status(400).json({message: "Bad Request: Missing pipelineId from body"});
         return;
       }
       const proposal = await this.mainService.generateFixes(pipelineId, slug);
@@ -159,16 +159,13 @@ export class MainController {
   /**
    * Get recent pipelines for a project
    * GET /api/pipelines?slug=gh/owner/repo&limit=20
+   * slug is optional - will use CIRCLECI_ORG_SLUG env var if not provided
    */
   async getPipelines(req: Request, res: Response) {
     try {
       const {slug, limit} = req.query;
-      if (!slug) {
-        res.status(400).json({message: "Bad Request: Missing slug from query parameters"});
-        return;
-      }
       const limitNum = limit ? parseInt(limit as string) : 20;
-      const pipelines = await this.mainService.getPipelines(slug as string, limitNum);
+      const pipelines = await this.mainService.getPipelines(slug as string | undefined, limitNum);
       res.status(200).json({
         message: 'Pipelines retrieved successfully',
         count: pipelines.length,
@@ -186,15 +183,19 @@ export class MainController {
   /**
    * Get detailed pipeline information with workflows and jobs
    * GET /api/pipeline-details?slug=gh/owner/repo&pipeline=123
+   * slug is optional - will use CIRCLECI_ORG_SLUG env var if not provided
    */
   async getPipelineDetails(req: Request, res: Response) {
     try {
       const {slug, pipeline} = req.query;
-      if (!slug || !pipeline) {
-        res.status(400).json({message: "Bad Request: Missing slug or pipeline from query parameters"});
+      if (!pipeline) {
+        res.status(400).json({message: "Bad Request: Missing pipeline from query parameters"});
         return;
       }
-      const details = await this.mainService.getPipelineDetails(slug as string, parseInt(pipeline as string));
+      const details = await this.mainService.getPipelineDetails(
+        slug as string | undefined,
+        parseInt(pipeline as string)
+      );
       res.status(200).json({
         message: 'Pipeline details retrieved successfully',
         details

@@ -6,6 +6,7 @@ import { CircleCIClient } from 'core';
 export class MainService {
   private testFixerOrchestrator: TestFixerOrchestrator;
   private circleCIClient: CircleCIClient;
+  private defaultSlug: string;
 
   constructor() {
     const config: TestFixerConfig = {
@@ -19,6 +20,14 @@ export class MainService {
     };
     this.testFixerOrchestrator = new TestFixerOrchestrator(config);
     this.circleCIClient = new CircleCIClient({ apiToken: process.env.CIRCLE_CI_TOKEN! });
+    this.defaultSlug = process.env.CIRCLECI_ORG_SLUG || '';
+  }
+
+  /**
+   * Get the default CircleCI org slug from environment
+   */
+  getDefaultSlug(): string {
+    return this.defaultSlug;
   }
 
   /**
@@ -49,10 +58,14 @@ export class MainService {
    * Step 3: Generate fixes for analyzed failures
    * Use this to preview proposed fixes before creating a PR
    */
-  async generateFixes(pipelineId: string, slug: string): Promise<FixProposal> {
+  async generateFixes(pipelineId: string, slug?: string): Promise<FixProposal> {
     const failures = await this.testFixerOrchestrator.fetchTestFailures(pipelineId);
     const analyzed = await this.testFixerOrchestrator.analyzeFailures(failures);
-    return this.testFixerOrchestrator.generateFixes(analyzed, slug);
+    const effectiveSlug = slug || this.defaultSlug;
+    if (!effectiveSlug) {
+      throw new Error('CircleCI org slug is required. Set CIRCLECI_ORG_SLUG environment variable or provide slug parameter.');
+    }
+    return this.testFixerOrchestrator.generateFixes(analyzed, effectiveSlug);
   }
 
   /**
@@ -75,15 +88,26 @@ export class MainService {
    * Frontend: Get recent pipelines for a specific project
    * Use this to let users choose which pipeline/build has failures
    */
-  async getPipelines(slug: string, limit: number = 20): Promise<any[]> {
-    return this.circleCIClient.getRecentPipelines(slug, limit);
+  async getPipelines(slug?: string, limit: number = 20): Promise<any[]> {
+    const effectiveSlug = slug || this.defaultSlug;
+    if (!effectiveSlug) {
+      throw new Error('CircleCI org slug is required. Set CIRCLECI_ORG_SLUG environment variable or provide slug parameter.');
+    }
+    return this.circleCIClient.getRecentPipelines(effectiveSlug, limit);
   }
 
   /**
    * Frontend: Get detailed pipeline information with workflows and jobs
    * Use this to visualize the pipeline status and errors
    */
-  async getPipelineDetails(slug: string, pipelineNumber: number): Promise<any> {
-    return this.circleCIClient.getPipelineDetails(slug, pipelineNumber);
+  async getPipelineDetails(slug?: string, pipelineNumber?: number): Promise<any> {
+    const effectiveSlug = slug || this.defaultSlug;
+    if (!effectiveSlug) {
+      throw new Error('CircleCI org slug is required. Set CIRCLECI_ORG_SLUG environment variable or provide slug parameter.');
+    }
+    if (!pipelineNumber) {
+      throw new Error('Pipeline number is required.');
+    }
+    return this.circleCIClient.getPipelineDetails(effectiveSlug, pipelineNumber);
   }
 }

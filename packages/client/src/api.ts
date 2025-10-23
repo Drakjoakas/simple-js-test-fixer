@@ -7,7 +7,7 @@ import type {
   FixResponse,
 } from './types';
 
-const API_BASE = import.meta.env.VITE_API_URL + '/api' || '/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 async function fetchAPI<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -28,16 +28,24 @@ async function fetchAPI<T>(url: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   // Get list of pipelines with status
-  async getPipelines(slug: string, limit = 20): Promise<PipelinesResponse> {
+  async getPipelines(slug?: string, limit = 20): Promise<PipelinesResponse> {
+    const params = new URLSearchParams({ limit: limit.toString() });
+    if (slug) {
+      params.append('slug', slug);
+    }
     return fetchAPI<PipelinesResponse>(
-      `${API_BASE}/pipelines?slug=${encodeURIComponent(slug)}&limit=${limit}`
+      `${API_BASE}/pipelines?${params.toString()}`
     );
   },
 
   // Get detailed info about a specific pipeline
-  async getPipelineDetails(slug: string, pipelineNumber: number): Promise<PipelineDetailsResponse> {
+  async getPipelineDetails(slug: string | undefined, pipelineNumber: number): Promise<PipelineDetailsResponse> {
+    const params = new URLSearchParams({ pipeline: pipelineNumber.toString() });
+    if (slug) {
+      params.append('slug', slug);
+    }
     return fetchAPI<PipelineDetailsResponse>(
-      `${API_BASE}/pipeline-details?slug=${encodeURIComponent(slug)}&pipeline=${pipelineNumber}`
+      `${API_BASE}/pipeline-details?${params.toString()}`
     );
   },
 
@@ -52,10 +60,14 @@ export const api = {
   },
 
   // Generate fix proposals
-  async generateFixes(pipelineId: string, slug: string): Promise<GenerateFixesResponse> {
+  async generateFixes(pipelineId: string, slug?: string): Promise<GenerateFixesResponse> {
+    const body: { pipelineId: string; slug?: string } = { pipelineId };
+    if (slug) {
+      body.slug = slug;
+    }
     return fetchAPI<GenerateFixesResponse>(`${API_BASE}/generate-fixes`, {
       method: 'POST',
-      body: JSON.stringify({ pipelineId, slug }),
+      body: JSON.stringify(body),
     });
   },
 
